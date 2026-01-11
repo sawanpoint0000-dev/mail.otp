@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live OTP Chat</title>
+  <style>
+    .copy-btn {
+      margin-right: 10px;
+      padding: 2px 6px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: background-color 0.3s;
+    }
+
+    .copied {
+      background-color: #28a745 !important;
+    }
+
+    #chat p {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<h3>Live Chat Box</h3>
+
+<input id="email" placeholder="Enter Email"><br><br>
+<input id="otp" placeholder="Enter OTP"><br><br>
+
+<button onclick="sendMessage()">Send</button>
+
+<hr>
+<div id="chat"></div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyDi40uxY5aC8R3xqacPL393h67TuQ4RiVo",
+    authDomain: "real-time-chat-box-179ea.firebaseapp.com",
+    databaseURL: "https://real-time-chat-box-179ea-default-rtdb.firebaseio.com",
+    projectId: "real-time-chat-box-179ea",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  var database = firebase.database();
+
+  function sendMessage() {
+    var email = document.getElementById("email").value;
+    var otp = document.getElementById("otp").value;
+
+    if(email && otp) {
+      database.ref("messages").push({ email: email, otp: otp });
+      document.getElementById("otp").value = "";
+    }
+  }
+
+  function copyEmail(email, btn) {
+    navigator.clipboard.writeText(email).then(() => {
+      btn.classList.add("copied");
+      setTimeout(() => btn.classList.remove("copied"), 1000); // Reset color after 1s
+    });
+  }
+
+  function renderChat() {
+    database.ref("messages").once("value", function(snapshot) {
+      var chatDiv = document.getElementById("chat");
+      chatDiv.innerHTML = ""; // Clear chat before rendering
+      snapshot.forEach(function(childSnapshot) {
+        var data = childSnapshot.val();
+
+        var p = document.createElement("p");
+
+        // Copy button
+        var btn = document.createElement("button");
+        btn.textContent = "Copy";
+        btn.className = "copy-btn";
+        btn.onclick = () => copyEmail(data.email, btn);
+
+        var emailText = document.createElement("b");
+        emailText.textContent = data.email + ": ";
+
+        var otpText = document.createTextNode(data.otp);
+
+        p.appendChild(btn);
+        p.appendChild(emailText);
+        p.appendChild(otpText);
+
+        chatDiv.appendChild(p);
+      });
+    });
+  }
+
+  // Refresh chat every 30ms (very fast, can adjust)
+  setInterval(renderChat, 30);
+</script>
+
+</body>
+</html>
