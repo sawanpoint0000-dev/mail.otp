@@ -1,168 +1,199 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>MAIL.OTP</title>
-  <style>
-    .copy-btn {
-      padding: 2px 6px;
-      cursor: pointer;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 12px;
-    }
+  <title>TAMP.OTP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    .copied {
-      background-color: #28a745 !important;
-    }
-
-    /* Right side container */
-    .right-box {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* 🔴 Red flowing indicator */
-    .indicator {
-      width: 10px;
-      height: 10px;
-      background-color: red;
-      border-radius: 50%;
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
-
-    .time {
-      font-size: 12px;
-      color: red;
-      font-weight: bold;
-    }
-
-    #chat p {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin: 4px 0;
-    }
-  </style>
+<style>
+body{font-family:Arial;margin:0}
+#navbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#222;
+  color:#fff;
+  padding:8px;
+  font-size:14px
+}
+#users{
+  color:#0f0;
+  font-size:12px;
+  max-width:50%;
+  overflow:auto;
+  white-space:nowrap
+}
+.container{padding:10px}
+input{width:100%;padding:7px;margin:6px 0}
+button{padding:6px 10px;cursor:pointer}
+.row{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin:6px 0
+}
+.copy-btn{
+  background:#007bff;
+  color:#fff;
+  border:none;
+  border-radius:4px
+}
+.copied{background:#28a745!important}
+.otp-input{margin-left:auto;width:100px}
+.right{
+  display:flex;
+  align-items:center;
+  gap:4px
+}
+.dot{
+  width:8px;
+  height:8px;
+  background:red;
+  border-radius:50%;
+  animation:pulse 1s infinite
+}
+@keyframes pulse{50%{opacity:.3}}
+.time{color:red;font-size:11px}
+</style>
 </head>
+
 <body>
 
-<h3>TAMP.OTP</h3>
+<div id="navbar">
+  <b>TAMP.OTP</b>
+  <div id="users">Loading...</div>
+  <div>Total: <b id="mailCount">0</b></div>
+</div>
 
-<input id="email" placeholder="Enter Email"><br><br>
-<input id="otp" placeholder="Enter OTP"><br><br>
-
-<button onclick="sendMessage()">Send</button>
-
-<hr>
-<div id="chat"></div>
+<div class="container">
+  <input id="email" placeholder="Enter Email">
+  <button onclick="sendMail()">Send</button>
+  <hr>
+  <div id="chat"></div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
-  var firebaseConfig = {
-    apiKey: "AIzaSyDi40uxY5aC8R3xqacPL393h67TuQ4RiVo",
-    authDomain: "real-time-chat-box-179ea.firebaseapp.com",
-    databaseURL: "https://real-time-chat-box-179ea-default-rtdb.firebaseio.com",
-    projectId: "real-time-chat-box-179ea"
-  };
+/* 🔥 FIREBASE CONFIG */
+firebase.initializeApp({
+  apiKey:"AIzaSyDi40uxY5aC8R3xqacPL393h67TuQ4RiVo",
+  authDomain:"real-time-chat-box-179ea.firebaseapp.com",
+  databaseURL:"https://real-time-chat-box-179ea-default-rtdb.firebaseio.com",
+  projectId:"real-time-chat-box-179ea"
+});
+var db=firebase.database();
+const EXPIRE=10*60*1000;
 
-  firebase.initializeApp(firebaseConfig);
-  var database = firebase.database();
+/* 👤 USER NAME */
+let user=localStorage.getItem("user_name");
+if(!user){
+  user=prompt("Enter Name")||("Guest"+Math.floor(Math.random()*999));
+  localStorage.setItem("user_name",user);
+}
+db.ref("activeUsers/"+user).set(true);
 
-  const EXPIRE_TIME = 10 * 60 * 1000; // 10 minutes
+/* 📩 SEND MAIL */
+function sendMail(){
+  let email=document.getElementById("email").value.trim();
+  if(!email)return;
+  db.ref("messages").push({
+    email:email,
+    otp:"",
+    time:Date.now()
+  });
+  document.getElementById("email").value="";
+}
 
-  function sendMessage() {
-    var email = document.getElementById("email").value.trim();
-    var otp = document.getElementById("otp").value.trim();
+/* 📋 COPY */
+function copyMail(text,btn){
+  navigator.clipboard.writeText(text);
+  btn.classList.add("copied");
+  setTimeout(()=>btn.classList.remove("copied"),800);
+  db.ref("copyHistory/"+user+"/count")
+    .transaction(c=>(c||0)+1);
+}
 
-    if (email && otp) {
-      database.ref("messages").push({
-        email: email,
-        otp: otp,
-        timestamp: Date.now()
-      });
-      document.getElementById("otp").value = "";
+/* 🔄 REALTIME RENDER – NEW MAIL ALWAYS ON TOP */
+const chat=document.getElementById("chat");
+
+db.ref("messages")
+  .orderByChild("time")
+  .on("child_added", snap=>{
+    const d=snap.val();
+    const id=snap.key;
+
+    const row=document.createElement("div");
+    row.className="row";
+    row.id=id;
+
+    const copy=document.createElement("button");
+    copy.className="copy-btn";
+    copy.innerText="Copy";
+    copy.onclick=()=>copyMail(d.email,copy);
+
+    const email=document.createElement("b");
+    email.innerText=d.email;
+
+    const otp=document.createElement("input");
+    otp.className="otp-input";
+    otp.placeholder="OTP";
+    otp.value=d.otp||"";
+    otp.oninput=e=>{
+      db.ref("messages/"+id+"/otp").set(e.target.value);
+    };
+
+    const right=document.createElement("div");
+    right.className="right";
+
+    const dot=document.createElement("span");
+    dot.className="dot";
+
+    const time=document.createElement("span");
+    time.className="time";
+
+    right.append(dot,time);
+    row.append(copy,email,otp,right);
+
+    chat.prepend(row);   // 🔥 NEW MAIL ON TOP
+    startTimer(id,d.time,time);
+    updateMailCount();
+});
+
+/* ⏱️ TIMER */
+function startTimer(id,start,el){
+  const i=setInterval(()=>{
+    const left=EXPIRE-(Date.now()-start);
+    if(left<=0){
+      db.ref("messages/"+id).remove();
+      document.getElementById(id)?.remove();
+      clearInterval(i);
+      updateMailCount();
+      return;
     }
-  }
+    const m=Math.floor(left/60000);
+    const s=Math.floor(left/1000)%60;
+    el.innerText=`${m}:${s.toString().padStart(2,"0")}`;
+  },1000);
+}
 
-  function copyEmail(email, btn) {
-    navigator.clipboard.writeText(email).then(() => {
-      btn.classList.add("copied");
-      setTimeout(() => btn.classList.remove("copied"), 1000);
+/* 👥 USERS + COPY COUNT */
+db.ref("activeUsers").on("value",snap=>{
+  let arr=[];
+  snap.forEach(u=>{
+    db.ref("copyHistory/"+u.key+"/count").once("value",c=>{
+      arr.push(u.key+"("+(c.val()||0)+")");
+      users.innerText=arr.join(", ");
     });
-  }
+  });
+});
 
-  function formatTime(ms) {
-    let s = Math.floor(ms / 1000);
-    let m = String(Math.floor(s / 60)).padStart(2, "0");
-    let sec = String(s % 60).padStart(2, "0");
-    return m + ":" + sec;
-  }
-
-  function renderChat() {
-    let now = Date.now();
-    database.ref("messages").once("value", function(snapshot) {
-      let chat = document.getElementById("chat");
-      chat.innerHTML = "";
-
-      snapshot.forEach(function(child) {
-        let key = child.key;
-        let data = child.val();
-        let remaining = EXPIRE_TIME - (now - data.timestamp);
-
-        if (remaining <= 0) {
-          database.ref("messages/" + key).remove();
-          return;
-        }
-
-        let p = document.createElement("p");
-
-        let btn = document.createElement("button");
-        btn.textContent = "Copy";
-        btn.className = "copy-btn";
-        btn.onclick = () => copyEmail(data.email, btn);
-
-        let emailText = document.createElement("b");
-        emailText.textContent = data.email + ":";
-
-        let otpText = document.createTextNode(" " + data.otp);
-
-        // Right side (red flow + time)
-        let rightBox = document.createElement("div");
-        rightBox.className = "right-box";
-
-        let indicator = document.createElement("span");
-        indicator.className = "indicator";
-
-        let timeText = document.createElement("span");
-        timeText.className = "time";
-        timeText.textContent = formatTime(remaining);
-
-        rightBox.appendChild(indicator);
-        rightBox.appendChild(timeText);
-
-        p.appendChild(btn);
-        p.appendChild(emailText);
-        p.appendChild(otpText);
-        p.appendChild(rightBox);
-
-        chat.appendChild(p);
-      });
-    });
-  }
-
-  setInterval(renderChat, 1000);
+/* 🔢 MAIL COUNT */
+function updateMailCount(){
+  db.ref("messages").once("value",s=>{
+    document.getElementById("mailCount").innerText=s.numChildren();
+  });
+}
 </script>
 
 </body>
