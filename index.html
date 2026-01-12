@@ -13,6 +13,7 @@
   --accent:#4f8cff;
   --success:#22c55e;
   --danger:#ef4444;
+  --insta-gradient:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5);
 }
 *{box-sizing:border-box}
 body{
@@ -37,7 +38,6 @@ body{
   margin-bottom:14px;
 }
 input{
-  width:100%;
   padding:12px;
   border-radius:12px;
   background:#0b0e14;
@@ -47,7 +47,7 @@ input{
 button{
   border:none;
   border-radius:14px;
-  padding:12px;
+  padding:8px 12px;
   font-weight:600;
   cursor:pointer;
 }
@@ -59,6 +59,7 @@ button{
   border-radius:16px;
   background:#10131a;
   margin-bottom:10px;
+  position:relative;
 }
 .row.highlight{
   box-shadow:0 0 15px rgba(250,204,21,.6);
@@ -66,8 +67,15 @@ button{
 .copy-btn{
   background:var(--success);
   color:#000;
-  padding:6px 10px;
   font-size:12px;
+  padding:6px 10px;
+}
+.copy-btn.copied{
+  background: var(--insta-gradient);
+  color: #fff;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 .otp-input{
   width:90px;
@@ -100,6 +108,11 @@ button{
 }
 .menu div{display:flex;justify-content:space-between;margin-bottom:6px}
 .menu hr{border:none;height:1px;background:#333;margin:8px 0}
+.available-mail{
+  margin:10px 0;
+  font-size:14px;
+  color:var(--accent);
+}
 </style>
 </head>
 
@@ -126,18 +139,19 @@ button{
 
 <div class="container">
 
-<div class="card" id="adminLogin">
+<div class="card" id="adminLoginBox">
   <input id="adminPass" placeholder="Admin Password">
   <button onclick="adminLogin()" style="background:var(--accent);color:#fff">Admin Login</button>
 </div>
 
 <div class="card hide" id="adminPanel">
-  <input id="email">
+  <input id="email" placeholder="Enter Email">
   <button onclick="addMail()" style="background:#f59e0b">Add Mail</button>
 </div>
 
 <div class="card">
   <button onclick="buyMail()" style="background:var(--accent);color:#fff">BUY MAIL</button>
+  <div class="available-mail">Available Mails: <span id="availableMail">0</span></div>
 </div>
 
 <div id="chat"></div>
@@ -158,8 +172,12 @@ const EXPIRE=10*60*1000;
 const uid=localStorage.getItem("uid")||("u"+Date.now());
 localStorage.setItem("uid",uid);
 
-/* MASK EMAIL */
-function maskEmail(e){return e.substring(0,8)+"***********";}
+/* MASK EMAIL FOR DISPLAY */
+function maskEmail(email){
+  let atIndex = email.indexOf("@");
+  if(atIndex<=4) return email; 
+  return email.substring(0,4)+"*****"+email.substring(atIndex-2);
+}
 
 /* MENU */
 function toggleMenu(){menu.classList.toggle("hide")}
@@ -179,11 +197,14 @@ db.ref(".info/connected").on("value",s=>{
 });
 db.ref("active").on("value",s=>activeUsers.innerText=s.numChildren());
 
-/* ADMIN */
+/* ADMIN LOGIN */
 function adminLogin(){
-  if(adminPass.value!=="admin@123") return alert("Wrong");
+  if(adminPass.value !== "admin@123"){
+    alert("Wrong Admin Password");
+    return;
+  }
   localStorage.setItem("isAdmin","1");
-  adminLogin.classList.add("hide");
+  document.getElementById("adminLoginBox").classList.add("hide");
   adminPanel.classList.remove("hide");
   adminOnly.classList.remove("hide");
 }
@@ -193,12 +214,21 @@ function addMail(){
   if(!email.value) return;
   db.ref("lot").push(email.value);
   email.value="";
+  updateAvailableMail();
 }
+
+/* UPDATE AVAILABLE MAIL COUNT */
+function updateAvailableMail(){
+  db.ref("lot").once("value",s=>{
+    availableMail.innerText = s.numChildren();
+  });
+}
+setInterval(updateAvailableMail,1000); 
 
 /* BUY MAIL */
 function buyMail(){
   db.ref("lot").limitToFirst(1).once("value",s=>{
-    if(!s.exists()) return alert("No mail");
+    if(!s.exists()) return alert("No mail left! Admin, please add more mails.");
     let mail,key;
     s.forEach(x=>{mail=x.val();key=x.key});
     db.ref("lot/"+key).remove();
@@ -210,6 +240,7 @@ function buyMail(){
       success:false
     });
     db.ref("stat/"+uid+"/buy").transaction(n=>(n||0)+1);
+    updateAvailableMail();
   });
 }
 
@@ -221,6 +252,7 @@ function startTimer(id,start,el){
       clearInterval(t);
       db.ref("msg/"+id).remove();
       document.getElementById(id)?.remove();
+      updateAvailableMail();
       return;
     }
     el.innerText=
@@ -229,20 +261,32 @@ function startTimer(id,start,el){
   },1000);
 }
 
-/* SHOW */
+/* SHOW MESSAGES LIVE */
 db.ref("msg").on("child_added",s=>{
   const d=s.val(),id=s.key;
   const row=document.createElement("div");
   row.className="row";row.id=id;
 
-  const copy=document.createElement("button");
-  copy.className="copy-btn";copy.innerText="Copy";copy.disabled=true;
+  // LEFT MAIL COPY BUTTON
+  const mailCopy=document.createElement("button");
+  mailCopy.className="copy-btn";
+  mailCopy.innerText="Copy Mail";
+  mailCopy.onclick = ()=>{
+    navigator.clipboard.writeText(d.email);
+    mailCopy.classList.add("copied");
+    setTimeout(()=>mailCopy.classList.remove("copied"),1500);
+  }
 
+  // MASKED MAIL DISPLAY
   const e=document.createElement("b");
-  e.innerText=maskEmail(d.email);
+  e.innerText = maskEmail(d.email);
 
+  // OTP input
   const otp=document.createElement("input");
-  otp.className="otp-input";otp.type="password";otp.value=d.otp||"";
+  otp.className="otp-input";
+  otp.type="text";
+  otp.value=d.otp||"";
+
   if(localStorage.getItem("isAdmin")==="1"){
     otp.oninput=x=>db.ref("msg/"+id+"/otp").set(x.target.value);
   }else otp.disabled=true;
@@ -250,24 +294,20 @@ db.ref("msg").on("child_added",s=>{
   const right=document.createElement("div");
   right.className="right";
   const dot=document.createElement("span");dot.className="dot";
-  const time=document.createElement("span");
-  time.className="time";time.innerText="10:00";
+  const time=document.createElement("span");time.className="time";time.innerText="10:00";
   right.append(dot,time);
 
-  row.append(copy,e,otp,right);
+  row.append(mailCopy,e,otp,right);
   chat.prepend(row);
 
   startTimer(id,d.time,time);
-
-  copy.onclick=()=>otp.value&&navigator.clipboard.writeText(otp.value);
 });
 
-/* OTP UPDATE */
+/* OTP UPDATE LIVE */
 db.ref("msg").on("child_changed",s=>{
   const d=s.val(),row=document.getElementById(s.key);
   if(!row||!d.otp) return;
   row.querySelector(".otp-input").value=d.otp;
-  row.querySelector(".copy-btn").disabled=false;
   row.querySelector(".dot").classList.add("active");
   row.classList.add("highlight");
 
