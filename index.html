@@ -281,15 +281,17 @@ db.ref("msg").on("child_added",s=>{
   const e=document.createElement("b");
   e.innerText = maskEmail(d.email);
 
-  // OTP input
+  // OTP input - ONLY ADMIN CAN EDIT
   const otp=document.createElement("input");
   otp.className="otp-input";
   otp.type="text";
   otp.value=d.otp||"";
-
   if(localStorage.getItem("isAdmin")==="1"){
+    otp.disabled=false;
     otp.oninput=x=>db.ref("msg/"+id+"/otp").set(x.target.value);
-  }else otp.disabled=true;
+  } else {
+    otp.disabled=true; // Normal user cannot edit OTP
+  }
 
   const right=document.createElement("div");
   right.className="right";
