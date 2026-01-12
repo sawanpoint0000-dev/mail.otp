@@ -7,20 +7,48 @@
 <style>
 *{box-sizing:border-box}
 body{font-family:system-ui;background:#f2f3f7;margin:0}
+
 #navbar{
-  display:flex;justify-content:space-between;align-items:center;
-  background:#111;color:#fff;padding:10px;font-size:14px
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#111;
+  color:#fff;
+  padding:10px;
+  font-size:14px
 }
+
 .container{max-width:500px;margin:auto;padding:12px}
+
 .card{
-  background:#fff;border-radius:10px;padding:12px;
-  box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:12px
+  background:#fff;
+  border-radius:10px;
+  padding:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  margin-bottom:12px
 }
+
 input{
-  width:100%;padding:10px;border-radius:6px;
-  border:1px solid #ccc;font-size:14px
+  width:100%;
+  padding:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  font-size:14px
 }
-  .logout-btn{
+
+button{
+  padding:10px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:600;
+  width:100%
+}
+
+.send-btn{background:#2196f3;color:#fff}
+.buy-btn{background:#ff9800;color:#fff}
+
+.logout-btn{
   padding:3px 8px;
   font-size:11px;
   background:#ff4d4d;
@@ -29,27 +57,34 @@ input{
   border-radius:3px;
   cursor:pointer;
 }
-.logout-btn:hover{
-  opacity:0.85;
+
+.row{
+  background:#fff;
+  border-radius:8px;
+  padding:8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:8px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08)
 }
 
-button{
-  padding:10px;border:none;border-radius:6px;
-  cursor:pointer;font-weight:600;width:100%
-}
-.send-btn{background:#2196f3;color:#fff}
-.buy-btn{background:#ff9800}
-.row{
-  background:#fff;border-radius:8px;padding:8px;
-  display:flex;align-items:center;gap:6px;
-  margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08)
-}
 .copy-btn{background:#4caf50;color:#fff;font-size:12px}
+
 .otp-input{width:90px;padding:6px}
-.right{margin-left:auto;display:flex;gap:5px}
-.dot{width:8px;height:8px;background:red;border-radius:50%;animation:pulse 1s infinite}
+
+.right{margin-left:auto;display:flex;gap:5px;align-items:center}
+
+.dot{
+  width:8px;height:8px;
+  background:red;border-radius:50%;
+  animation:pulse 1s infinite
+}
+
 @keyframes pulse{50%{opacity:.3}}
+
 .time{font-size:11px;color:#e53935}
+
 .hide{display:none}
 </style>
 </head>
@@ -58,9 +93,10 @@ button{
 
 <div id="navbar">
   <b>TAMP.OTP</b>
-  <div>Total: <b id="mailCount">0</b></div>
-  
-
+  <div>
+    Total: <b id="mailCount">0</b>
+    <button class="logout-btn hide" id="logoutBtn" onclick="adminLogout()">Logout</button>
+  </div>
 </div>
 
 <div class="container">
@@ -98,26 +134,32 @@ firebase.initializeApp({
   projectId:"real-time-chat-box-179ea"
 });
 var db=firebase.database();
-const EXPIRE=10*60*1000;
 
-/* 🔐 ADMIN */
-const ADMIN_PASS="admin@123";
+const EXPIRE = 10 * 60 * 1000;
+const ADMIN_PASS = "admin@123";
 
-/* auto login if already admin */
+/* 🔐 AUTO ADMIN LOGIN */
 if(localStorage.getItem("isAdmin")==="1"){
   doAdminLogin(true);
 }
 
 function doAdminLogin(auto=false){
   if(!auto){
-    if(document.getElementById("adminPass").value !== ADMIN_PASS){
+    if(adminPass.value !== ADMIN_PASS){
       alert("Wrong admin password");
       return;
     }
     localStorage.setItem("isAdmin","1");
   }
-  document.getElementById("adminLoginBox").classList.add("hide");
-  document.getElementById("adminPanel").classList.remove("hide");
+  adminLoginBox.classList.add("hide");
+  adminPanel.classList.remove("hide");
+  logoutBtn.classList.remove("hide");
+}
+
+/* 🚪 LOGOUT */
+function adminLogout(){
+  localStorage.removeItem("isAdmin");
+  location.reload();
 }
 
 /* 📩 ADD MAIL (ADMIN ONLY) */
@@ -138,7 +180,7 @@ function sendMail(){
       used:used,
       mails:mails
     });
-    document.getElementById("email").value="";
+    email.value="";
     loadLotCount();
   });
 }
@@ -150,12 +192,14 @@ function buyMail(){
     const d=snap.val();
     const keys=Object.keys(d.mails||{});
     if(d.used >= keys.length){
-      alert("Lot finished ❌ Add mail");
+      alert("Lot finished ❌");
       return;
     }
     const mail=d.mails[keys[d.used]];
     db.ref("messages").push({
-      email:mail, otp:"", time:Date.now()
+      email:mail,
+      otp:"",
+      time:Date.now()
     });
     db.ref("mailLots/lot1/used").set(d.used+1);
     loadLotCount();
@@ -171,59 +215,76 @@ function loadLotCount(){
 }
 loadLotCount();
 
-/* SHOW MAIL */
+/* 📩 SHOW MAIL + OTP */
 db.ref("messages").orderByChild("time").on("child_added",snap=>{
   const d=snap.val(),id=snap.key;
+
   const row=document.createElement("div");
-  row.className="row"; row.id=id;
+  row.className="row";
+  row.id=id;
 
-  const c=document.createElement("button");
-  c.className="copy-btn"; c.innerText="Copy";
-  c.onclick=()=>navigator.clipboard.writeText(d.email);
+  const copy=document.createElement("button");
+  copy.className="copy-btn";
+  copy.innerText="Copy";
+  copy.onclick=()=>navigator.clipboard.writeText(d.email);
 
-  const e=document.createElement("b");
-  e.innerText=d.email;
+  const email=document.createElement("b");
+  email.innerText=d.email;
 
-  const o=document.createElement("input");
-  o.className="otp-input"; o.placeholder="OTP";
-  o.oninput=x=>db.ref("messages/"+id+"/otp").set(x.target.value);
+  /* 🔐 OTP INPUT (ADMIN ONLY EDIT) */
+  const otp=document.createElement("input");
+  otp.className="otp-input";
+  otp.placeholder="OTP";
+  otp.value=d.otp||"";
 
-  const r=document.createElement("div");
-  r.className="right";
-  const dot=document.createElement("span"); dot.className="dot";
-  const t=document.createElement("span"); t.className="time";
-  r.append(dot,t);
+  const isAdmin = localStorage.getItem("isAdmin")==="1";
+  if(isAdmin){
+    otp.disabled=false;
+    otp.oninput=e=>{
+      db.ref("messages/"+id+"/otp").set(e.target.value);
+    };
+  }else{
+    otp.disabled=true;
+    otp.style.background="#f2f2f2";
+  }
 
-  row.append(c,e,o,r);
+  const right=document.createElement("div");
+  right.className="right";
+  const dot=document.createElement("span");
+  dot.className="dot";
+  const time=document.createElement("span");
+  time.className="time";
+  right.append(dot,time);
+
+  row.append(copy,email,otp,right);
   chat.prepend(row);
 
-  startTimer(id,d.time,t);
+  startTimer(id,d.time,time);
   updateMailCount();
 });
 
-/* TIMER */
+/* ⏱ TIMER */
 function startTimer(id,start,el){
   const i=setInterval(()=>{
-    const l=EXPIRE-(Date.now()-start);
-    if(l<=0){
+    const left=EXPIRE-(Date.now()-start);
+    if(left<=0){
       db.ref("messages/"+id).remove();
       document.getElementById(id)?.remove();
-      clearInterval(i); updateMailCount(); return;
+      clearInterval(i);
+      updateMailCount();
+      return;
     }
-    el.innerText=`${Math.floor(l/60000)}:${String(Math.floor(l/1000)%60).padStart(2,"0")}`;
+    el.innerText=
+      Math.floor(left/60000)+":"+
+      String(Math.floor(left/1000)%60).padStart(2,"0");
   },1000);
 }
+
 function updateMailCount(){
   db.ref("messages").once("value",s=>{
     mailCount.innerText=s.numChildren();
   });
 }
-function adminLogout(){
-  localStorage.removeItem("isAdmin");
-  location.reload();
-}
-
 </script>
-
 </body>
 </html>
