@@ -13,9 +13,8 @@ button{cursor:pointer}
 .row{background:#10131a;padding:10px;border-radius:12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;justify-content:space-between}
 .copy{background:#22c55e;color:#000}
 .otp{
- width:80px;text-align:center;color:red;
- background:#10131a;border:1px solid #22c55e;
- border-radius:4px;font-weight:700;
+ width:80px;text-align:center;color:red;background:#10131a;
+ border:1px solid #22c55e;border-radius:4px;font-weight:700;
 }
 .time{font-size:12px;color:#f87171}
 .row:hover{background:#151a24}
@@ -24,7 +23,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </head>
 <body>
 
-<!-- AUTH -->
 <div class="card" id="auth">
 <h3>Login / Register</h3>
 <input id="email" placeholder="Email"><br><br>
@@ -33,40 +31,29 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button onclick="register()">Register</button>
 </div>
 
-<!-- APP -->
 <div id="app" class="hide">
-
 <div class="card">
 <b>TAMP.OTP</b>
 <button onclick="logout()" style="float:right;background:#ef4444;color:#fff">Logout</button>
 </div>
 
-<!-- ADMIN -->
 <div id="adminBox" class="card hide">
 <h3>ADMIN PANEL</h3>
-
-<h4>Domains</h4>
 <input id="newDomain" placeholder="@gmail.com">
-<button onclick="addDomain()">Add / Update Domain</button><br><br>
-
+<button onclick="addDomain()">Add Domain</button><br><br>
 <select id="adminDomain"></select><br><br>
 <input id="adminMail" placeholder="Username or full email">
 <button onclick="addMail()">Add Mail</button>
-
-<h4>Domain Stock</h4>
+<h4>Stock</h4>
 <div id="stocks"></div>
-
 <h4>Users</h4>
 <div id="users"></div>
 </div>
 
-<!-- USER -->
 <div id="userBox" class="card hide">
 <h3>User Panel</h3>
-<div>Balance ₹<b id="bal">0</b></div><br>
-<select id="userDomain">
-<option value="">-- Select Domain --</option>
-</select>
+Balance ₹<b id="bal">0</b><br><br>
+<select id="userDomain"></select>
 <button onclick="buyMail()">Buy Mail ₹1</button>
 </div>
 
@@ -82,52 +69,46 @@ firebase.initializeApp({
  databaseURL:"https://real-time-chat-box-179ea-default-rtdb.firebaseio.com"
 });
 const db=firebase.database();
-
 let uid="",isAdmin=false;
 const PRICE=1,EXPIRE=600000;
 
 /* LOGIN */
 function login(){
- let e=email.value,p=pass.value;
- if(e==="admin@tampotp.com" && p==="admin@123"){
+ if(email.value==="admin@tampotp.com" && pass.value==="admin@123"){
   localStorage.uid="admin";location.reload();return;
  }
  db.ref("users").once("value",s=>{
-  let ok=false;
   s.forEach(u=>{
-   if(u.val().email===e && u.val().pass===p){uid=u.key;ok=true;}
+   if(u.val().email===email.value && u.val().pass===pass.value){
+    localStorage.uid=u.key;location.reload();
+   }
   });
-  if(!ok) return alert("Wrong login");
-  localStorage.uid=uid;location.reload();
  });
 }
 
 /* REGISTER */
 function register(){
- if(!email.value||!pass.value) return alert("Fill all");
  let id="u"+Date.now();
  db.ref("users/"+id).set({
-  email:email.value,pass:pass.value,
-  balance:0,buy:0,success:0,blocked:false
+  email:email.value,pass:pass.value,balance:0,blocked:false
  });
  localStorage.uid=id;location.reload();
 }
 
 function logout(){localStorage.clear();location.reload()}
 
-/* AUTO LOGIN */
 uid=localStorage.uid||"";
 if(uid){
  auth.classList.add("hide");
  app.classList.remove("hide");
- if(uid==="admin"){isAdmin=true;adminBox.classList.remove("hide");}
- else{userBox.classList.remove("hide");}
+ if(uid==="admin"){isAdmin=true;adminBox.classList.remove("hide")}
+ else userBox.classList.remove("hide");
 }
 
-/* LOAD DOMAINS */
+/* DOMAINS */
 db.ref("domains").on("value",s=>{
  adminDomain.innerHTML="";
- userDomain.innerHTML='<option value="">-- Select Domain --</option>';
+ userDomain.innerHTML="";
  stocks.innerHTML="";
  s.forEach(d=>{
   adminDomain.innerHTML+=`<option value="${d.key}">${d.val().name}</option>`;
@@ -136,73 +117,91 @@ db.ref("domains").on("value",s=>{
  });
 });
 
-/* ADD DOMAIN */
 function addDomain(){
- let d=newDomain.value.trim();
- if(!d.startsWith("@")) return alert("Use @domain.com");
- let key=d.replace(".","_");
- db.ref("domains/"+key).set({name:d,stock:0});
- newDomain.value="";
+ let d=newDomain.value;
+ let k=d.replace(".","_");
+ db.ref("domains/"+k).set({name:d,stock:0});
 }
 
-/* 🔥 ADD MAIL (ORDER SAFE – FIFO) */
+/* 🔥 ADD MAIL — FIFO FIX */
 function addMail(){
- let k=adminDomain.value,v=adminMail.value.trim();
- if(!k||!v) return alert("Fill all");
+ let k=adminDomain.value;
+ let v=adminMail.value.trim();
  db.ref("domains/"+k).once("value",s=>{
   let dom=s.val().name;
   let email=v.includes("@")?v:v+dom;
-
-  // ✅ only change: push with time
   db.ref("mails/"+k).push({
-   email: email,
-   time: Date.now()
+   email:email,
+   time:Date.now()
   });
-
   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)+1);
   adminMail.value="";
  });
 }
 
-/* USER BALANCE + BLOCK */
+/* USER DATA */
 db.ref("users/"+uid).on("value",s=>{
  if(s.exists()){
   bal.innerText=s.val().balance||0;
-  if(s.val().blocked){alert("You are blocked");logout();}
+  if(s.val().blocked){alert("Blocked");logout();}
  }
 });
 
-/* BUY MAIL (ORDER SAFE – FIFO) */
+/* BUY MAIL — FIFO ONLY */
 function buyMail(){
  let k=userDomain.value;
- if(!k) return alert("Select domain");
- db.ref("users/"+uid+"/balance").once("value",s=>{
-  if((s.val()||0)<PRICE) return alert("No balance");
-
-  // ✅ only change: order by time
+ db.ref("users/"+uid+"/balance").once("value",b=>{
+  if((b.val()||0)<PRICE) return alert("No balance");
   db.ref("mails/"+k)
-   .orderByChild("time")
-   .limitToFirst(1)
+   .orderByChild("time").limitToFirst(1)
    .once("value",x=>{
     if(!x.exists()) return alert("No mail");
-
-    let key,data;
-    x.forEach(m=>{key=m.key;data=m.val();});
-
-    db.ref("mails/"+k+"/"+key).remove();
-    db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
-
-    db.ref("msg").push({
-     email:data.email,
-     user:uid,
-     time:Date.now(),
-     otp:""
+    x.forEach(m=>{
+     db.ref("mails/"+k+"/"+m.key).remove();
+     db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
+     db.ref("msg").push({
+      email:m.val().email,
+      user:uid,
+      time:Date.now(),
+      otp:""
+     });
+     db.ref("users/"+uid+"/balance").transaction(n=>n-PRICE);
     });
-
-    db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
    });
  });
 }
 
-/* SHOW MAIL + OTP + TIMER (UNCHANGED) */
-db.ref("msg").on("child_a_
+/* SHOW */
+db.ref("msg").on("child_added",s=>{
+ let d=s.val();
+ if(d.user!==uid && !isAdmin) return;
+ let r=document.createElement("div");
+ r.className="row";
+ r.innerHTML=`
+ <button class="copy">Copy</button>
+ <span>${d.email.replace(/^(.{3}).*(.{2}@)/,"$1*****$2")}</span>
+ <input class="otp" ${isAdmin?"":"disabled"}>
+ <span class="time">10:00</span>`;
+ r.querySelector(".copy").onclick=()=>navigator.clipboard.writeText(d.email);
+ if(isAdmin){
+  r.querySelector(".otp").oninput=e=>db.ref("msg/"+s.key+"/otp").set(e.target.value);
+ }
+ db.ref("msg/"+s.key+"/otp").on("value",o=>{
+  r.querySelector(".otp").value=o.val()||"";
+ });
+ list.prepend(r);
+ startTimer(d.time,r.querySelector(".time"),s.key);
+});
+
+function startTimer(t,e,id){
+ let x=setInterval(()=>{
+  let l=EXPIRE-(Date.now()-t);
+  if(l<=0){clearInterval(x);db.ref("msg/"+id).remove();}
+  e.innerText=
+   String(Math.floor(l/60000)).padStart(2,"0")+":"+
+   String(Math.floor(l/1000)%60).padStart(2,"0");
+ },1000);
+}
+</script>
+</body>
+</html>
