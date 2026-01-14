@@ -22,8 +22,6 @@ button{cursor:pointer}
  font-weight:700;
 }
 .time{font-size:12px;color:#f87171}
-
-/* EXTRA UI – ADD ONLY */
 .row:hover{background:#151a24}
 button:disabled{opacity:.5;cursor:not-allowed}
 </style>
@@ -41,7 +39,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <!-- APP -->
 <div id="app" class="hide">
-
 <div class="card">
 <b>TAMP.OTP</b>
 <button onclick="logout()" style="float:right;background:#ef4444;color:#fff">Logout</button>
@@ -154,25 +151,35 @@ function addDomain(){
  let d=newDomain.value.trim();
  if(!d.startsWith("@")) return alert("Use @domain.com");
  let key=d.replace(".","_");
- db.ref("domains/"+key).set({name:d,stock:0});
+ db.ref("domains/"+key).set({name:d,stock:0,seq:0});
  newDomain.value="";
 }
 
-/* ADD MAIL */
+/* ADD MAIL — NUMBER WISE (ADD ONLY) */
 function addMail(){
  let k=adminDomain.value,v=adminMail.value.trim();
  if(!k||!v) return alert("Fill all");
+
  db.ref("domains/"+k).once("value",s=>{
   let dom=s.val().name;
   let email=v.includes("@")?v:v+dom;
   let safe=email.replace(/[.#$/\[\]]/g,"_");
-  db.ref("mails/"+k+"/"+safe).set(true);
+
+  db.ref("domains/"+k+"/seq").transaction(n=>{
+    n=(n||0)+1;
+    db.ref("mails/"+k+"/"+safe).set({
+      email:email,
+      no:n
+    });
+    return n;
+  });
+
   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)+1);
   adminMail.value="";
  });
 }
 
-/* USER BALANCE + BLOCK CHECK */
+/* USER BALANCE */
 db.ref("users/"+uid).on("value",s=>{
  if(s.exists()){
   bal.innerText=s.val().balance||0;
@@ -180,7 +187,7 @@ db.ref("users/"+uid).on("value",s=>{
  }
 });
 
-/* ADMIN USER CONTROL – ADD ONLY */
+/* ADMIN USER CONTROL */
 if(isAdmin){
  db.ref("users").on("value",s=>{
   users.innerHTML="";
@@ -188,10 +195,9 @@ if(isAdmin){
    if(u.key==="admin") return;
    let d=u.val();
    users.innerHTML+=`
-    <div style="font-size:12px;margin-bottom:6px">
+    <div style="font-size:12px">
      <b>${d.email}</b><br>
-     ID: ${u.key}<br>
-     Balance: ₹${d.balance||0}<br>
+     Balance ₹${d.balance||0}<br>
      <button onclick="addUserBalance('${u.key}')">Add Balance</button>
      <button onclick="blockUser('${u.key}',${!d.blocked})">
       ${d.blocked?"Unblock":"Block"}
@@ -211,33 +217,43 @@ function blockUser(id,v){
  db.ref("users/"+id+"/blocked").set(v);
 }
 
-/* BUY MAIL */
+/* BUY MAIL — STRICT 1-BY-1 */
 function buyMail(){
  let k=userDomain.value;
  if(!k) return alert("Select domain");
+
  db.ref("users/"+uid+"/balance").once("value",s=>{
   if((s.val()||0)<PRICE) return alert("No balance");
-  db.ref("mails/"+k).limitToFirst(1).once("value",x=>{
-   if(!x.exists()) return alert("No mail");
-   let key;
-   x.forEach(m=>key=m.key);
-   db.ref("mails/"+k+"/"+key).remove();
-   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
-   db.ref("msg").push({
-    email:key.replace(/_/g,"."),
-    user:uid,
-    time:Date.now(),
-    otp:""
+
+  db.ref("mails/"+k)
+   .orderByChild("no")
+   .limitToFirst(1)
+   .once("value",x=>{
+    if(!x.exists()) return alert("No mail");
+
+    let key,data;
+    x.forEach(m=>{key=m.key;data=m.val();});
+
+    db.ref("mails/"+k+"/"+key).remove();
+    db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
+
+    db.ref("msg").push({
+      email:data.email,
+      user:uid,
+      time:Date.now(),
+      otp:""
+    });
+
+    db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
    });
-   db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
-  });
  });
 }
 
-/* SHOW MAIL + OTP + TIMER */
+/* SHOW MAIL */
 db.ref("msg").on("child_added",s=>{
  let d=s.val();
  if(d.user!==uid && !isAdmin) return;
+
  let r=document.createElement("div");
  r.className="row";
  r.innerHTML=`
@@ -245,13 +261,17 @@ db.ref("msg").on("child_added",s=>{
  <span>${d.email.replace(/^(.{3}).*(.{2}@)/,"$1*****$2")}</span>
  <input class="otp" ${isAdmin?"":"disabled"}>
  <span class="time">10:00</span>`;
+
  r.querySelector(".copy").onclick=()=>navigator.clipboard.writeText(d.email);
+
  if(isAdmin){
   r.querySelector(".otp").oninput=e=>db.ref("msg/"+s.key+"/otp").set(e.target.value);
  }
+
  db.ref("msg/"+s.key+"/otp").on("value",snap=>{
   r.querySelector(".otp").value=snap.val()||"";
  });
+
  list.prepend(r);
  startTimer(d.time,r.querySelector(".time"),s.key);
 });
