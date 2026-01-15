@@ -27,6 +27,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
+<audio id="notifySound" src="notify.mp3" preload="auto"></audio>
 
 <!-- AUTH -->
 <div class="card" id="auth">
@@ -47,7 +48,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <!-- ADMIN -->
 <div id="adminBox" class="card hide">
 <h3>ADMIN PANEL</h3>
-
+<button onclick="document.getElementById('notifySound').play()">Enable Sound</button>
  <h4>🔔 Notifications</h4>
 <div id="notifications"></div>
 
@@ -246,14 +247,33 @@ function buyMail(){
       time:Date.now(),
       otp:""
     });
-    // 🔔 ADMIN NOTIFICATION
-db.ref("adminNotify").push({
-  user: uid,
-  email: data.email,
-  domain: k,
-  time: Date.now(),
-  type: "BUY_MAIL"
-});
+    /* ADMIN NOTIFICATIONS WITH SOUND */
+if(isAdmin){
+ db.ref("adminNotify").limitToLast(20).on("child_added", s=>{
+  let d = s.val();
+
+  let div = document.createElement("div");
+  div.style.fontSize="12px";
+  div.style.background="#0f172a";
+  div.style.padding="6px";
+  div.style.marginBottom="6px";
+  div.style.borderRadius="6px";
+
+  div.innerHTML = `
+   🔔 <b>Mail Bought</b><br>
+   User: ${d.user}<br>
+   Email: ${d.email}<br>
+   Time: ${new Date(d.time).toLocaleTimeString()}
+  `;
+
+  notifications.prepend(div);
+
+  // 🔊 SOUND ONLY (NO POPUP)
+  let sound = document.getElementById("notifySound");
+  sound.currentTime = 0;
+  sound.play().catch(()=>{});
+ });
+}
 
     db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
    });
