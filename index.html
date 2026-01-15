@@ -13,9 +13,13 @@ button{cursor:pointer}
 .row{background:#10131a;padding:10px;border-radius:12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;justify-content:space-between}
 .copy{background:#22c55e;color:#000}
 .otp{
- width:80px;text-align:center;color:red;
- background:#10131a;border:1px solid #22c55e;
- border-radius:4px;font-weight:700;
+ width:80px;
+ text-align:center;
+ color:red;
+ background:#10131a;
+ border:1px solid #22c55e;
+ border-radius:4px;
+ font-weight:700;
 }
 .time{font-size:12px;color:#f87171}
 .row:hover{background:#151a24}
@@ -23,9 +27,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
-
-<!-- 🔊 SOUND FILE -->
-<audio id="notifySound" src="notify.mp3" preload="auto"></audio>
 
 <!-- AUTH -->
 <div class="card" id="auth">
@@ -46,10 +47,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <!-- ADMIN -->
 <div id="adminBox" class="card hide">
 <h3>ADMIN PANEL</h3>
-
-<h4>🔔 Notifications</h4>
-<div id="notifications"></div>
-<button onclick="document.getElementById('notifySound').play()">Enable Sound</button>
 
 <h4>Domains</h4>
 <input id="newDomain" placeholder="@gmail.com">
@@ -101,7 +98,9 @@ function login(){
  db.ref("users").once("value",s=>{
   let ok=false;
   s.forEach(u=>{
-   if(u.val().email===e && u.val().pass===p){uid=u.key;ok=true;}
+   if(u.val().email===e && u.val().pass===p){
+    uid=u.key;ok=true;
+   }
   });
   if(!ok) return alert("Wrong login");
   localStorage.uid=uid;location.reload();
@@ -149,7 +148,6 @@ db.ref("domains").on("value",s=>{
 
 /* ADD DOMAIN */
 function addDomain(){
- if(!isAdmin) return alert("Only admin");
  let d=newDomain.value.trim();
  if(!d.startsWith("@")) return alert("Use @domain.com");
  let key=d.replace(".","_");
@@ -159,18 +157,23 @@ function addDomain(){
 
 /* ADD MAIL */
 function addMail(){
- if(!isAdmin) return alert("Only admin");
  let k=adminDomain.value,v=adminMail.value.trim();
  if(!k||!v) return alert("Fill all");
+
  db.ref("domains/"+k).once("value",s=>{
   let dom=s.val().name;
   let email=v.includes("@")?v:v+dom;
   let safe=email.replace(/[.#$/\[\]]/g,"_");
+
   db.ref("domains/"+k+"/seq").transaction(n=>{
     n=(n||0)+1;
-    db.ref("mails/"+k+"/"+safe).set({email,no:n});
+    db.ref("mails/"+k+"/"+safe).set({
+      email:email,
+      no:n
+    });
     return n;
   });
+
   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)+1);
   adminMail.value="";
  });
@@ -198,20 +201,19 @@ if(isAdmin){
      <button onclick="addUserBalance('${u.key}')">Add Balance</button>
      <button onclick="blockUser('${u.key}',${!d.blocked})">
       ${d.blocked?"Unblock":"Block"}
-     </button><hr>
+     </button>
+     <hr>
     </div>`;
   });
  });
 }
 
 function addUserBalance(id){
- if(!isAdmin) return alert("Only admin allowed");
  let amt=+prompt("Add INR");
  if(!amt||amt<=0) return;
  db.ref("users/"+id+"/balance").transaction(b=>(b||0)+amt);
 }
 function blockUser(id,v){
- if(!isAdmin) return alert("Only admin allowed");
  db.ref("users/"+id+"/blocked").set(v);
 }
 
@@ -219,35 +221,69 @@ function blockUser(id,v){
 function buyMail(){
  let k=userDomain.value;
  if(!k) return alert("Select domain");
+
  db.ref("users/"+uid+"/balance").once("value",s=>{
   if((s.val()||0)<PRICE) return alert("No balance");
-  db.ref("mails/"+k).orderByChild("no").limitToFirst(1).once("value",x=>{
+
+  db.ref("mails/"+k)
+   .orderByChild("no")
+   .limitToFirst(1)
+   .once("value",x=>{
     if(!x.exists()) return alert("No mail");
+
     let key,data;
     x.forEach(m=>{key=m.key;data=m.val();});
+
     db.ref("mails/"+k+"/"+key).remove();
     db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
+
     db.ref("msg").push({
-      email:data.email,user:uid,time:Date.now(),otp:""
+      email:data.email,
+      user:uid,
+      time:Date.now(),
+      otp:""
     });
-    db.ref("adminNotify").push({
-      user:uid,email:data.email,time:Date.now()
-    });
+
     db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
-  });
+   });
  });
 }
 
-/* ADMIN SOUND NOTIFY */
-if(isAdmin){
- db.ref("adminNotify").limitToLast(20).on("child_added",s=>{
-  let d=s.val();
-  let div=document.createElement("div");
-  div.innerText=`${d.email} - ${new Date(d.time).toLocaleTimeString()}`;
-  notifications.prepend(div);
-  let snd=document.getElementById("notifySound");
-  snd.currentTime=0;snd.play().catch(()=>{});
+/* SHOW MAIL */
+db.ref("msg").on("child_added",s=>{
+ let d=s.val();
+ if(d.user!==uid && !isAdmin) return;
+
+ let r=document.createElement("div");
+ r.className="row";
+ r.innerHTML=`
+ <button class="copy">Copy</button>
+ <span>${d.email.replace(/^(.{3}).*(.{2}@)/,"$1*****$2")}</span>
+ <input class="otp" ${isAdmin?"":"disabled"}>
+ <span class="time">10:00</span>`;
+
+ r.querySelector(".copy").onclick=()=>navigator.clipboard.writeText(d.email);
+
+ if(isAdmin){
+  r.querySelector(".otp").oninput=e=>db.ref("msg/"+s.key+"/otp").set(e.target.value);
+ }
+
+ db.ref("msg/"+s.key+"/otp").on("value",snap=>{
+  r.querySelector(".otp").value=snap.val()||"";
  });
+
+ list.prepend(r);
+ startTimer(d.time,r.querySelector(".time"),s.key);
+});
+
+function startTimer(t,el,id){
+ let x=setInterval(()=>{
+  let l=EXPIRE-(Date.now()-t);
+  if(l<=0){clearInterval(x);db.ref("msg/"+id).remove();}
+  el.innerText=
+   String(Math.floor(l/60000)).padStart(2,"0")+":"+
+   String(Math.floor(l/1000)%60).padStart(2,"0");
+ },1000);
 }
 </script>
 </body>
