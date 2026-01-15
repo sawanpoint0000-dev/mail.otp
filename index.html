@@ -13,13 +13,9 @@ button{cursor:pointer}
 .row{background:#10131a;padding:10px;border-radius:12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;justify-content:space-between}
 .copy{background:#22c55e;color:#000}
 .otp{
- width:80px;
- text-align:center;
- color:red;
- background:#10131a;
- border:1px solid #22c55e;
- border-radius:4px;
- font-weight:700;
+ width:80px;text-align:center;color:red;
+ background:#10131a;border:1px solid #22c55e;
+ border-radius:4px;font-weight:700;
 }
 .time{font-size:12px;color:#f87171}
 .row:hover{background:#151a24}
@@ -28,7 +24,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </head>
 <body>
 
-<!-- 🔊 SOUND FILE (ADD ONLY) -->
+<!-- 🔊 SOUND FILE -->
 <audio id="notifySound" src="notify.mp3" preload="auto"></audio>
 
 <!-- AUTH -->
@@ -51,9 +47,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="adminBox" class="card hide">
 <h3>ADMIN PANEL</h3>
 
-<!-- 🔔 NOTIFICATION BOX -->
 <h4>🔔 Notifications</h4>
 <div id="notifications"></div>
+<button onclick="document.getElementById('notifySound').play()">Enable Sound</button>
 
 <h4>Domains</h4>
 <input id="newDomain" placeholder="@gmail.com">
@@ -68,11 +64,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <h4>Users</h4>
 <div id="users"></div>
-
-<!-- 🔊 SOUND ENABLE BUTTON -->
-<button onclick="document.getElementById('notifySound').play()">
-Enable Notification Sound
-</button>
 </div>
 
 <!-- USER -->
@@ -110,9 +101,7 @@ function login(){
  db.ref("users").once("value",s=>{
   let ok=false;
   s.forEach(u=>{
-   if(u.val().email===e && u.val().pass===p){
-    uid=u.key;ok=true;
-   }
+   if(u.val().email===e && u.val().pass===p){uid=u.key;ok=true;}
   });
   if(!ok) return alert("Wrong login");
   localStorage.uid=uid;location.reload();
@@ -160,6 +149,7 @@ db.ref("domains").on("value",s=>{
 
 /* ADD DOMAIN */
 function addDomain(){
+ if(!isAdmin) return alert("Only admin");
  let d=newDomain.value.trim();
  if(!d.startsWith("@")) return alert("Use @domain.com");
  let key=d.replace(".","_");
@@ -169,20 +159,18 @@ function addDomain(){
 
 /* ADD MAIL */
 function addMail(){
+ if(!isAdmin) return alert("Only admin");
  let k=adminDomain.value,v=adminMail.value.trim();
  if(!k||!v) return alert("Fill all");
-
  db.ref("domains/"+k).once("value",s=>{
   let dom=s.val().name;
   let email=v.includes("@")?v:v+dom;
   let safe=email.replace(/[.#$/\[\]]/g,"_");
-
   db.ref("domains/"+k+"/seq").transaction(n=>{
     n=(n||0)+1;
     db.ref("mails/"+k+"/"+safe).set({email,no:n});
     return n;
   });
-
   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)+1);
   adminMail.value="";
  });
@@ -196,53 +184,69 @@ db.ref("users/"+uid).on("value",s=>{
  }
 });
 
+/* ADMIN USER CONTROL */
+if(isAdmin){
+ db.ref("users").on("value",s=>{
+  users.innerHTML="";
+  s.forEach(u=>{
+   if(u.key==="admin") return;
+   let d=u.val();
+   users.innerHTML+=`
+    <div style="font-size:12px">
+     <b>${d.email}</b><br>
+     Balance ₹${d.balance||0}<br>
+     <button onclick="addUserBalance('${u.key}')">Add Balance</button>
+     <button onclick="blockUser('${u.key}',${!d.blocked})">
+      ${d.blocked?"Unblock":"Block"}
+     </button><hr>
+    </div>`;
+  });
+ });
+}
+
+function addUserBalance(id){
+ if(!isAdmin) return alert("Only admin allowed");
+ let amt=+prompt("Add INR");
+ if(!amt||amt<=0) return;
+ db.ref("users/"+id+"/balance").transaction(b=>(b||0)+amt);
+}
+function blockUser(id,v){
+ if(!isAdmin) return alert("Only admin allowed");
+ db.ref("users/"+id+"/blocked").set(v);
+}
+
 /* BUY MAIL */
 function buyMail(){
  let k=userDomain.value;
  if(!k) return alert("Select domain");
-
  db.ref("users/"+uid+"/balance").once("value",s=>{
   if((s.val()||0)<PRICE) return alert("No balance");
-
   db.ref("mails/"+k).orderByChild("no").limitToFirst(1).once("value",x=>{
     if(!x.exists()) return alert("No mail");
-
     let key,data;
     x.forEach(m=>{key=m.key;data=m.val();});
-
     db.ref("mails/"+k+"/"+key).remove();
     db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
-
     db.ref("msg").push({
-      email:data.email,
-      user:uid,
-      time:Date.now(),
-      otp:""
+      email:data.email,user:uid,time:Date.now(),otp:""
     });
-
-    // 🔔 ADMIN NOTIFY
     db.ref("adminNotify").push({
-      user:uid,
-      email:data.email,
-      time:Date.now()
+      user:uid,email:data.email,time:Date.now()
     });
-
     db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
-   });
+  });
  });
 }
 
-/* ADMIN SOUND NOTIFICATION */
+/* ADMIN SOUND NOTIFY */
 if(isAdmin){
- db.ref("adminNotify").limitToLast(20).on("child_added", s=>{
+ db.ref("adminNotify").limitToLast(20).on("child_added",s=>{
   let d=s.val();
   let div=document.createElement("div");
-  div.innerHTML=`📧 ${d.email} <small>${new Date(d.time).toLocaleTimeString()}</small>`;
+  div.innerText=`${d.email} - ${new Date(d.time).toLocaleTimeString()}`;
   notifications.prepend(div);
-
   let snd=document.getElementById("notifySound");
-  snd.currentTime=0;
-  snd.play().catch(()=>{});
+  snd.currentTime=0;snd.play().catch(()=>{});
  });
 }
 </script>
