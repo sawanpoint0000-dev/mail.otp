@@ -27,6 +27,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
+
+<!-- 🔊 SOUND FILE (ADD ONLY) -->
 <audio id="notifySound" src="notify.mp3" preload="auto"></audio>
 
 <!-- AUTH -->
@@ -48,8 +50,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <!-- ADMIN -->
 <div id="adminBox" class="card hide">
 <h3>ADMIN PANEL</h3>
-<button onclick="document.getElementById('notifySound').play()">Enable Sound</button>
- <h4>🔔 Notifications</h4>
+
+<!-- 🔔 NOTIFICATION BOX -->
+<h4>🔔 Notifications</h4>
 <div id="notifications"></div>
 
 <h4>Domains</h4>
@@ -65,6 +68,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <h4>Users</h4>
 <div id="users"></div>
+
+<!-- 🔊 SOUND ENABLE BUTTON -->
+<button onclick="document.getElementById('notifySound').play()">
+Enable Notification Sound
+</button>
 </div>
 
 <!-- USER -->
@@ -159,7 +167,7 @@ function addDomain(){
  newDomain.value="";
 }
 
-/* ADD MAIL — NUMBER WISE (ADD ONLY) */
+/* ADD MAIL */
 function addMail(){
  let k=adminDomain.value,v=adminMail.value.trim();
  if(!k||!v) return alert("Fill all");
@@ -171,10 +179,7 @@ function addMail(){
 
   db.ref("domains/"+k+"/seq").transaction(n=>{
     n=(n||0)+1;
-    db.ref("mails/"+k+"/"+safe).set({
-      email:email,
-      no:n
-    });
+    db.ref("mails/"+k+"/"+safe).set({email,no:n});
     return n;
   });
 
@@ -191,37 +196,7 @@ db.ref("users/"+uid).on("value",s=>{
  }
 });
 
-/* ADMIN USER CONTROL */
-if(isAdmin){
- db.ref("users").on("value",s=>{
-  users.innerHTML="";
-  s.forEach(u=>{
-   if(u.key==="admin") return;
-   let d=u.val();
-   users.innerHTML+=`
-    <div style="font-size:12px">
-     <b>${d.email}</b><br>
-     Balance ₹${d.balance||0}<br>
-     <button onclick="addUserBalance('${u.key}')">Add Balance</button>
-     <button onclick="blockUser('${u.key}',${!d.blocked})">
-      ${d.blocked?"Unblock":"Block"}
-     </button>
-     <hr>
-    </div>`;
-  });
- });
-}
-
-function addUserBalance(id){
- let amt=+prompt("Add INR");
- if(!amt||amt<=0) return;
- db.ref("users/"+id+"/balance").transaction(b=>(b||0)+amt);
-}
-function blockUser(id,v){
- db.ref("users/"+id+"/blocked").set(v);
-}
-
-/* BUY MAIL — STRICT 1-BY-1 */
+/* BUY MAIL */
 function buyMail(){
  let k=userDomain.value;
  if(!k) return alert("Select domain");
@@ -229,10 +204,7 @@ function buyMail(){
  db.ref("users/"+uid+"/balance").once("value",s=>{
   if((s.val()||0)<PRICE) return alert("No balance");
 
-  db.ref("mails/"+k)
-   .orderByChild("no")
-   .limitToFirst(1)
-   .once("value",x=>{
+  db.ref("mails/"+k).orderByChild("no").limitToFirst(1).once("value",x=>{
     if(!x.exists()) return alert("No mail");
 
     let key,data;
@@ -247,100 +219,32 @@ function buyMail(){
       time:Date.now(),
       otp:""
     });
-    /* ADMIN NOTIFICATIONS WITH SOUND */
-if(isAdmin){
- db.ref("adminNotify").limitToLast(20).on("child_added", s=>{
-  let d = s.val();
 
-  let div = document.createElement("div");
-  div.style.fontSize="12px";
-  div.style.background="#0f172a";
-  div.style.padding="6px";
-  div.style.marginBottom="6px";
-  div.style.borderRadius="6px";
-
-  div.innerHTML = `
-   🔔 <b>Mail Bought</b><br>
-   User: ${d.user}<br>
-   Email: ${d.email}<br>
-   Time: ${new Date(d.time).toLocaleTimeString()}
-  `;
-
-  notifications.prepend(div);
-
-  // 🔊 SOUND ONLY (NO POPUP)
-  let sound = document.getElementById("notifySound");
-  sound.currentTime = 0;
-  sound.play().catch(()=>{});
- });
-}
+    // 🔔 ADMIN NOTIFY
+    db.ref("adminNotify").push({
+      user:uid,
+      email:data.email,
+      time:Date.now()
+    });
 
     db.ref("users/"+uid+"/balance").transaction(b=>b-PRICE);
    });
  });
 }
 
-/* SHOW MAIL */
-db.ref("msg").on("child_added",s=>{
- let d=s.val();
- if(d.user!==uid && !isAdmin) return;
-
- let r=document.createElement("div");
- r.className="row";
- r.innerHTML=`
- <button class="copy">Copy</button>
- <span>${d.email.replace(/^(.{3}).*(.{2}@)/,"$1*****$2")}</span>
- <input class="otp" ${isAdmin?"":"disabled"}>
- <span class="time">10:00</span>`;
-
- r.querySelector(".copy").onclick=()=>navigator.clipboard.writeText(d.email);
-
- if(isAdmin){
-  r.querySelector(".otp").oninput=e=>db.ref("msg/"+s.key+"/otp").set(e.target.value);
- }
-
- db.ref("msg/"+s.key+"/otp").on("value",snap=>{
-  r.querySelector(".otp").value=snap.val()||"";
- });
-
- list.prepend(r);
- startTimer(d.time,r.querySelector(".time"),s.key);
-});
-
-function startTimer(t,el,id){
- let x=setInterval(()=>{
-  let l=EXPIRE-(Date.now()-t);
-  if(l<=0){clearInterval(x);db.ref("msg/"+id).remove();}
-  el.innerText=
-   String(Math.floor(l/60000)).padStart(2,"0")+":"+
-   String(Math.floor(l/1000)%60).padStart(2,"0");
- },1000);
-}
- /* ADMIN NOTIFICATIONS */
+/* ADMIN SOUND NOTIFICATION */
 if(isAdmin){
  db.ref("adminNotify").limitToLast(20).on("child_added", s=>{
-  let d = s.val();
-  let div = document.createElement("div");
-  div.style.fontSize="12px";
-  div.style.background="#0f172a";
-  div.style.padding="6px";
-  div.style.marginBottom="6px";
-  div.style.borderRadius="6px";
-
-  div.innerHTML = `
-   📧 <b>Mail Bought</b><br>
-   User: ${d.user}<br>
-   Email: ${d.email}<br>
-   Time: ${new Date(d.time).toLocaleTimeString()}
-  `;
-
+  let d=s.val();
+  let div=document.createElement("div");
+  div.innerHTML=`📧 ${d.email} <small>${new Date(d.time).toLocaleTimeString()}</small>`;
   notifications.prepend(div);
 
-  // optional popup alert
-  alert("🔔 New Mail Purchased!");
+  let snd=document.getElementById("notifySound");
+  snd.currentTime=0;
+  snd.play().catch(()=>{});
  });
 }
-
 </script>
 </body>
 </html>
