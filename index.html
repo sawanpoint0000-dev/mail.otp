@@ -29,7 +29,6 @@ body{
  padding:16px;
  box-shadow:0 10px 30px rgba(0,0,0,.4);
 }
-h3,h4{margin:8px 0 12px}
 input,select,button{
  width:100%;
  padding:12px;
@@ -54,9 +53,16 @@ button{
  padding:12px;
  margin-bottom:8px;
  display:flex;
- gap:10px;
+ gap:8px;
  align-items:center;
- justify-content:space-between;
+ overflow:hidden;
+}
+.row span{
+ flex:1;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ font-size:13px;
 }
 .copy{
  background:linear-gradient(135deg,#22c55e,#16a34a);
@@ -64,7 +70,7 @@ button{
  width:auto;
 }
 .otp{
- width:90px;
+ width:70px;
  text-align:center;
  font-weight:700;
  color:#22c55e;
@@ -75,7 +81,7 @@ button{
 .time{
  font-size:12px;
  color:#fca5a5;
- min-width:50px;
+ min-width:48px;
  text-align:right;
 }
 .hide{display:none}
@@ -104,12 +110,28 @@ button{
  color:#000;
  text-transform:uppercase;
 }
+.badge{
+ background:#16a34a;
+ padding:3px 6px;
+ border-radius:6px;
+ font-size:10px;
+ animation:blink 1s infinite;
+}
+@keyframes blink{
+ 0%{opacity:1}
+ 50%{opacity:.3}
+ 100%{opacity:1}
+}
 </style>
 </head>
 <body>
 
-<audio id="buySound">
+<!-- SOUNDS -->
+<audio id="buySound" preload="auto">
  <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
+</audio>
+<audio id="otpSound" preload="auto">
+ <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg">
 </audio>
 
 <!-- LOGIN -->
@@ -122,7 +144,6 @@ button{
 </div>
 
 <div id="app" class="hide">
-
 <div class="card" style="display:flex;justify-content:space-between;align-items:center">
 <b>🚀 TAMP.OTP</b>
 <button class="logout" onclick="logout()">Logout</button>
@@ -148,7 +169,6 @@ button{
 
 <!-- USER -->
 <div id="userBox" class="card hide">
-
 <div style="display:flex;gap:12px;align-items:center">
  <div class="avatar" id="avatar"></div>
  <div>
@@ -182,6 +202,11 @@ const db=firebase.database();
 const PRICE=1, EXPIRE=600000;
 let uid="", isAdmin=false;
 
+/* 🔔 SOUND */
+function playBeep(){document.getElementById("buySound").play().catch(()=>{});}
+function playOTP(){document.getElementById("otpSound").play().catch(()=>{});}
+
+/* LOGIN */
 function login(){
  if(email.value==="admin@tampotp.com" && pass.value==="admin@123"){
   localStorage.uid="admin";location.reload();return;
@@ -195,6 +220,7 @@ function login(){
  });
 }
 
+/* REGISTER */
 function register(){
  let id="u"+Date.now();
  db.ref("users/"+id).set({
@@ -227,6 +253,7 @@ db.ref("users/"+uid).once("value",s=>{
  if(s.val().blocked){alert("Blocked");logout()}
 });
 
+/* DOMAINS */
 db.ref("domains").on("value",s=>{
  adminDomain.innerHTML="";
  userDomain.innerHTML='<option value="">-- Select Domain --</option>';
@@ -259,6 +286,7 @@ function addMail(){
  adminMail.value="";
 }
 
+/* ADMIN USERS */
 if(isAdmin){
  db.ref("users").on("value",s=>{
   users.innerHTML="";
@@ -277,6 +305,7 @@ if(isAdmin){
  });
 }
 
+/* BUY MAIL */
 function buyMail(){
  let k=userDomain.value;
  db.ref("users/"+uid).once("value",u=>{
@@ -289,13 +318,19 @@ function buyMail(){
    db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
    db.ref("msg").push({email:data.email,user:uid,time:Date.now(),otp:""});
    db.ref("users/"+uid+"/balance").transaction(b=>b-1);
+   db.ref("buy").push({user:uid,time:Date.now()}); // 🔔 ADMIN BEEP
   });
  });
 }
 
+/* SHOW MAIL + OTP + ADMIN BEEP */
 db.ref("msg").on("child_added",s=>{
  let d=s.val();
- if(d.user!==uid && !isAdmin)return;
+ if(d.user!==uid && !isAdmin) return;
+
+ // 🔔 Admin beep for new mail
+ if(isAdmin) playBeep();
+
  let r=document.createElement("div");
  r.className="row";
  r.innerHTML=`
@@ -304,9 +339,18 @@ db.ref("msg").on("child_added",s=>{
  <input class="otp" ${isAdmin?"":"disabled"}>
  <span class="time">10:00</span>`;
  r.querySelector(".copy").onclick=()=>navigator.clipboard.writeText(d.email);
+
  if(isAdmin) r.querySelector(".otp").oninput=e=>db.ref("msg/"+s.key+"/otp").set(e.target.value);
  db.ref("msg/"+s.key+"/otp").on("value",x=>r.querySelector(".otp").value=x.val()||"");
+
  list.prepend(r);
+
+ // ⏱ Auto expire 10 minutes
+ setInterval(()=>{
+   let l=EXPIRE-(Date.now()-d.time);
+   if(l<=0) r.remove();
+   else r.querySelector(".time").innerText=String(Math.floor(l/60000)).padStart(2,"0")+":"+String(Math.floor(l/1000)%60).toString().padStart(2,"0");
+ },1000);
 });
 </script>
 </body>
