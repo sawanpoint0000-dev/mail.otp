@@ -6,174 +6,174 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+:root{
+ --bg:#020617;
+ --card:#0f172a;
+ --primary:#6366f1;
+ --green:#22c55e;
+ --red:#ef4444;
+ --text:#e5e7eb;
+}
 *{box-sizing:border-box}
-
+body{
+ margin:0;
+ font-family:system-ui;
+ background:radial-gradient(circle at top,#1e1b4b,#020617);
+ color:var(--text);
+}
+.card{
+ background:rgba(255,255,255,.06);
+ backdrop-filter:blur(12px);
+ border-radius:16px;
+ margin:12px;
+ padding:14px;
+}
+input,select,button{
+ width:100%;
+ padding:10px;
+ border-radius:10px;
+ border:none;
+ outline:none;
+ background:#020617;
+ color:#fff;
+}
+button{
+ background:linear-gradient(135deg,var(--primary),#4338ca);
+ font-weight:600;
+ cursor:pointer;
+}
 .logout{
  width:auto;
  padding:6px 14px;
  font-size:13px;
  border-radius:8px;
+ background:linear-gradient(135deg,#ef4444,#b91c1c);
 }
-
-body{
- margin:0;
- min-height:100vh;
- font-family:system-ui;
- background:#0b0e14;
- color:#fff;
-}
-.card{
- background:#161a22;
- margin:12px;
- padding:14px;
- border-radius:14px;
-}
-input,select,button{
- width:100%;
- padding:10px;
- border-radius:8px;
- border:none;
- background:#020617;
- color:#fff;
-}
-button{
- cursor:pointer;
- background:linear-gradient(135deg,#7c7cff,#4f46e5);
- font-weight:600;
-}
-.logout{background:#ef4444}
 .hide{display:none}
 
 .row{
- background:#10131a;
+ background:#020617;
  padding:10px;
  border-radius:12px;
  margin-bottom:8px;
  display:flex;
  gap:8px;
  align-items:center;
+ flex-wrap:wrap;
 }
 .row span{
  flex:1;
  font-size:13px;
- overflow:hidden;
- white-space:nowrap;
- text-overflow:ellipsis;
+ word-break:break-all;
 }
 .copy{
- background:#22c55e;
+ background:linear-gradient(135deg,#22c55e,#16a34a);
  color:#000;
  width:auto;
 }
 .otp{
  width:90px;
- min-width:80px;
+ max-width:100%;
  text-align:center;
  font-weight:700;
+ color:#22c55e;
  background:#020617;
  border:1px solid #22c55e;
  border-radius:8px;
- color:#22c55e;
 }
 .time{
  font-size:12px;
- color:#f87171;
+ color:#fca5a5;
  min-width:52px;
  text-align:right;
- font-weight:700;
 }
-.adminUser{
- background:#0f172a;
- padding:10px;
- border-radius:12px;
- margin-bottom:8px;
- font-size:13px;
-}
-.adminUser button{
- width:auto;
- margin-right:6px;
- padding:6px 10px;
-}
+
 .avatar{
- width:44px;
- height:44px;
+ width:42px;
+ height:42px;
  border-radius:50%;
- background:linear-gradient(135deg,#7c7cff,#22c55e);
+ background:linear-gradient(135deg,#6366f1,#22c55e);
  display:flex;
  align-items:center;
  justify-content:center;
  font-size:20px;
  font-weight:800;
  color:#000;
+ text-transform:uppercase;
+}
+.adminUser{
+ background:#020617;
+ padding:10px;
+ border-radius:12px;
+ margin-bottom:8px;
+ font-size:12px;
+}
+.adminUser button{
+ width:auto;
+ padding:6px 10px;
+ margin-right:6px;
 }
 </style>
 </head>
 <body>
 
-<!-- 🔊 SOUNDS -->
-<audio id="buySound" preload="auto">
+<!-- SOUND -->
+<audio id="beep" preload="auto">
  <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
 </audio>
-<audio id="otpSound" preload="auto">
- <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg">
-</audio>
 
-<!-- 🔐 AUTH -->
+<!-- LOGIN -->
 <div class="card" id="auth">
-<h3>Login / Register</h3>
-<input id="email" placeholder="Email">
-<br><br>
-<input id="pass" placeholder="Password">
-<br><br>
-<button onclick="login()">Login</button>
-<br><br>
+<h3>🔐 Login / Register</h3>
+<input id="email" placeholder="Email"><br><br>
+<input id="pass" placeholder="Password"><br><br>
+<button onclick="login()">Login</button><br><br>
 <button onclick="register()" style="background:#22c55e">Register</button>
 </div>
 
-<!-- 🚀 APP -->
 <div id="app" class="hide">
 
+<!-- HEADER -->
 <div class="card" style="display:flex;justify-content:space-between;align-items:center">
-<b>TAMP.OTP</b>
+<b>🚀 TAMP.OTP</b>
 <button class="logout" onclick="logout()">Logout</button>
 </div>
 
-<!-- 👑 ADMIN -->
+<!-- ADMIN PANEL -->
 <div id="adminBox" class="card hide">
-<h3>ADMIN PANEL</h3>
+<h3>👑 ADMIN PANEL</h3>
 
 <input id="newDomain" placeholder="@gmail.com">
-<button onclick="addDomain()">Add Domain</button>
-<br><br>
+<button onclick="addDomain()">Add Domain</button><br><br>
 
-<select id="adminDomain"></select>
-<br><br>
-
+<select id="adminDomain"></select><br><br>
 <input id="adminMail" placeholder="username">
 <button onclick="addMail()">Add Mail</button>
 
-<h4>Domain Stock</h4>
+<h4>📦 Domain Stock</h4>
 <div id="stocks"></div>
 
-<h4>Users</h4>
+<h4>👥 Users</h4>
 <div id="users"></div>
 </div>
 
-<!-- 👤 USER -->
+<!-- USER PANEL -->
 <div id="userBox" class="card hide">
 <div style="display:flex;gap:10px;align-items:center">
  <div class="avatar" id="avatar"></div>
  <div>
-  <b id="userEmail"></b><br>
-  Balance ₹ <b id="bal">0</b>
+  <div style="font-weight:700">My Profile</div>
+  <div id="userEmail" style="font-size:12px;color:#c7d2fe"></div>
  </div>
 </div>
 
 <br>
+Balance ₹ <b id="bal">0</b><br><br>
+
 <select id="userDomain">
 <option value="">-- Select Domain --</option>
-</select>
-<br><br>
+</select><br><br>
+
 <button onclick="buyMail()">Buy Mail ₹1</button>
 </div>
 
@@ -189,31 +189,36 @@ firebase.initializeApp({
  databaseURL:"https://real-time-chat-box-179ea-default-rtdb.firebaseio.com"
 });
 const db=firebase.database();
-const PRICE=1, EXPIRE=600000;
+
+const PRICE=1;
+const EXPIRE=600000;
 let uid="", isAdmin=false;
 
-const beep=()=>document.getElementById("buySound").play().catch(()=>{});
-const otpBeep=()=>document.getElementById("otpSound").play().catch(()=>{});
+function beep(){
+ let a=document.getElementById("beep");
+ a.currentTime=0; a.play().catch(()=>{});
+}
 
 /* LOGIN */
 function login(){
  if(email.value==="admin@tampotp.com" && pass.value==="admin@123"){
-  localStorage.uid="admin";location.reload();return;
+  localStorage.uid="admin"; location.reload(); return;
  }
  db.ref("users").once("value",s=>{
   let ok=false;
   s.forEach(u=>{
    if(u.val().email===email.value && u.val().pass===pass.value){
-    localStorage.uid=u.key;ok=true;
+    localStorage.uid=u.key; ok=true;
    }
   });
-  if(!ok) alert("Wrong login");
-  else location.reload();
+  if(!ok) return alert("Wrong login");
+  location.reload();
  });
 }
 
 /* REGISTER */
 function register(){
+ if(!email.value||!pass.value) return alert("Fill all");
  let id="u"+Date.now();
  db.ref("users/"+id).set({
   email:email.value,
@@ -226,26 +231,34 @@ function register(){
  location.reload();
 }
 
-function logout(){localStorage.clear();location.reload()}
+function logout(){
+ localStorage.clear();
+ location.reload();
+}
 
 /* AUTO LOGIN */
 uid=localStorage.uid||"";
 if(uid){
  auth.classList.add("hide");
  app.classList.remove("hide");
- if(uid==="admin"){isAdmin=true;adminBox.classList.remove("hide")}
- else userBox.classList.remove("hide");
+ if(uid==="admin"){
+  isAdmin=true;
+  adminBox.classList.remove("hide");
+ }else{
+  userBox.classList.remove("hide");
+ }
 }
 
 /* USER DATA */
 db.ref("users/"+uid).on("value",s=>{
- if(!s.exists())return;
- bal.innerText=s.val().balance||0;
+ if(!s.exists()) return;
+ let u=s.val();
+ bal.innerText=u.balance||0;
  if(!isAdmin){
-  userEmail.innerText=s.val().email;
-  avatar.innerText=s.val().email.charAt(0);
+  userEmail.innerText=u.email;
+  avatar.innerText=u.email.charAt(0);
  }
- if(s.val().blocked){alert("Blocked");logout()}
+ if(u.blocked){ alert("Blocked"); logout(); }
 });
 
 /* DOMAINS */
@@ -270,8 +283,9 @@ function addDomain(){
 
 /* ADD MAIL */
 function addMail(){
- let k=adminDomain.value,v=adminMail.value.trim();
- if(!k||!v)return;
+ let k=adminDomain.value;
+ let v=adminMail.value.trim();
+ if(!k||!v) return;
  db.ref("domains/"+k).once("value",s=>{
   let email=v+s.val().name;
   let safe=email.replace(/[.#$/\[\]]/g,"_");
@@ -285,48 +299,86 @@ function addMail(){
  adminMail.value="";
 }
 
-/* BUY MAIL */
-function buyMail(){
- let k=userDomain.value;
- if(!k) return alert("Select domain");
- db.ref("users/"+uid).once("value",u=>{
-  if(!u.val().canBuy) return alert("Buy disabled");
-  if((u.val().balance||0)<PRICE) return alert("No balance");
-  db.ref("mails/"+k).orderByChild("no").limitToFirst(1).once("value",x=>{
-   if(!x.exists()) return alert("Out of stock");
-   let key,data;
-   x.forEach(m=>{key=m.key;data=m.val()});
-   db.ref("mails/"+k+"/"+key).remove();
-   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
-   db.ref("msg").push({email:data.email,user:uid,time:Date.now(),otp:""});
-   db.ref("users/"+uid+"/balance").transaction(b=>b-1);
-   beep();
+/* ADMIN USERS */
+if(isAdmin){
+ db.ref("users").on("value",s=>{
+  users.innerHTML="";
+  s.forEach(u=>{
+   if(u.key==="admin") return;
+   let d=u.val();
+   users.innerHTML+=`
+   <div class="adminUser">
+    <b>${d.email}</b><br>
+    Balance ₹${d.balance||0}<br><br>
+    <button onclick="db.ref('users/${u.key}/balance').transaction(b=>(b||0)+1)" style="background:#22c55e">+₹</button>
+    <button onclick="db.ref('users/${u.key}/blocked').set(${!d.blocked})"
+     style="background:${d.blocked?'#22c55e':'#ef4444'}">${d.blocked?'Unblock':'Block'}</button>
+    <button onclick="db.ref('users/${u.key}/canBuy').set(${!d.canBuy})"
+     style="background:${d.canBuy?'#ef4444':'#22c55e'}">${d.canBuy?'Stop Buy':'Allow Buy'}</button>
+   </div>`;
   });
  });
 }
 
-/* SHOW MAIL */
+/* BUY MAIL (BUG FIXED) */
+function buyMail(){
+ let k=userDomain.value;
+ if(!k) return alert("Select domain");
+
+ db.ref("users/"+uid).once("value",u=>{
+  if(!u.exists()) return alert("User data missing");
+
+  let user=u.val();
+
+  if(user.canBuy === false) return alert("Admin ne buy band kar diya");
+  if((user.balance||0) < PRICE) return alert("No balance");
+
+  db.ref("mails/"+k).orderByChild("no").limitToFirst(1).once("value",x=>{
+   if(!x.exists()) return alert("No mail");
+
+   let key,data;
+   x.forEach(m=>{ key=m.key; data=m.val(); });
+
+   db.ref("mails/"+k+"/"+key).remove();
+   db.ref("domains/"+k+"/stock").transaction(n=>(n||0)-1);
+
+   db.ref("msg").push({
+    email:data.email,
+    user:uid,
+    time:Date.now(),
+    otp:""
+   });
+
+   db.ref("users/"+uid+"/balance").transaction(b=>(b||0)-PRICE);
+
+   beep(); // 🔔 admin beep
+  });
+ });
+}
+
+/* SHOW MAIL + TIMER */
 db.ref("msg").on("child_added",s=>{
  let d=s.val();
  if(d.user!==uid && !isAdmin) return;
+
  if(isAdmin) beep();
 
  let r=document.createElement("div");
  r.className="row";
  r.innerHTML=`
-  <button class="copy">Copy</button>
-  <span>${d.email}</span>
-  <input class="otp" ${isAdmin?"":"disabled"}>
-  <span class="time">10:00</span>
- `;
+ <button class="copy">Copy</button>
+ <span>${d.email}</span>
+ <input class="otp" ${isAdmin?"":"disabled"}>
+ <span class="time">10:00</span>`;
+
  r.querySelector(".copy").onclick=()=>navigator.clipboard.writeText(d.email);
 
  if(isAdmin){
   r.querySelector(".otp").oninput=e=>{
    db.ref("msg/"+s.key+"/otp").set(e.target.value);
-   otpBeep();
   };
  }
+
  db.ref("msg/"+s.key+"/otp").on("value",x=>{
   r.querySelector(".otp").value=x.val()||"";
  });
@@ -335,17 +387,18 @@ db.ref("msg").on("child_added",s=>{
  startTimer(d.time,r.querySelector(".time"),s.key);
 });
 
-/* ⏱ TIMER */
 function startTimer(t,el,id){
  let x=setInterval(()=>{
-  let l=EXPIRE-(Date.now()-t);
-  if(l<=0){
+  let left=EXPIRE-(Date.now()-t);
+  if(left<=0){
    clearInterval(x);
    db.ref("msg/"+id).remove();
+   el.innerText="00:00";
+  }else{
+   el.innerText=
+    String(Math.floor(left/60000)).padStart(2,"0")+":"+
+    String(Math.floor(left/1000)%60).padStart(2,"0");
   }
-  el.innerText=
-   String(Math.floor(l/60000)).padStart(2,"0")+":"+
-   String(Math.floor(l/1000)%60).padStart(2,"0");
  },1000);
 }
 </script>
